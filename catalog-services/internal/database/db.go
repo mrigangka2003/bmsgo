@@ -37,11 +37,34 @@ func RunMigrations(db *pgxpool.Pool) {
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 	);
 	`
+	theatersTable := `
+	CREATE TABLE IF NOT EXISTS theaters (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		name VARCHAR(255) NOT NULL,
+		location TEXT NOT NULL,
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+	);`
 
-	_, err := db.Exec(context.Background(), query)
-	if err != nil {
-		log.Fatalf("Failed to create tables: %v\n", err)
+	showsTable := `
+	CREATE TABLE IF NOT EXISTS shows (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		movie_id UUID NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
+		theater_id UUID NOT NULL REFERENCES theaters(id) ON DELETE CASCADE,
+		start_time TIMESTAMP WITH TIME ZONE NOT NULL,
+		price INT NOT NULL, 
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+	);`
+
+
+
+	queries :=[]string{query,theatersTable,showsTable}
+
+	for _,query:= range queries{
+		_, err := db.Exec(context.Background(), query)
+		if err != nil {
+			log.Fatalf("Failed to create tables: %v\n", err)
+		}	
 	}
 
-	log.Println("database table verified/created successfully")
+	log.Println("Database tables (movies, theaters,shows) verified/created successfully")
 }
