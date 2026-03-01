@@ -16,12 +16,15 @@ func main() {
 	dbPool := database.ConnectDB(cfg.DATABASE_URL)
 	defer dbPool.Close()
 
+	//repositories
 	repo := repository.NewMovieRepo(dbPool)
 	theaterRepo := repository.NewTheaterRepo(dbPool)
+	showRepo := repository.NewShowRepo(dbPool)
 
 	// handlers
 	movieHandler := handler.NewMovieHandler(repo)
 	theaterHandler := handler.NewTheaterHandler(theaterRepo)
+	showHandler := handler.NewShowHandler(showRepo)
 
 	http.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("catalog service is healthy and connected to the db"))
@@ -36,6 +39,10 @@ func main() {
 	http.HandleFunc("POST /theaters", theaterHandler.CreateTheater)
 	http.HandleFunc("GET /theaters", theaterHandler.GetTheaters)
 
+	//Show Routes
+	http.HandleFunc("POST /shows", showHandler.CreateShow)
+	http.HandleFunc("GET /movies/{id}/shows", showHandler.GetShowsForMovie)
+	
 	addr:= ":" + cfg.Port 
 	log.Printf("🚀 Catalog Service starting on port %s...\n", cfg.Port)
 	
