@@ -33,35 +33,36 @@ func (r *MovieRepo) Create(ctx context.Context, movie *models.Movie) error {
 }
 
 // GetAll fetches all movies from the DB 
-func (r *MovieRepo) GetAll(ctx context.Context) ([]models.Movie, error) {
-	query := `SELECT id, title, description, duration_mins, release_date, created_at FROM movies`
+func (r *MovieRepo) GetAll(ctx context.Context, page int, limit int) ([]models.Movie, error) {
+	// Calculate how many records to skip
+	// Example: Page 1 skips 0. Page 2 skips 10.
+	offset := (page - 1) * limit
+
+	// Notice the ORDER BY, LIMIT, and OFFSET! 
+	// $1 is limit, $2 is offset.
+	query := `
+		SELECT id, title, description, duration_mins, release_date, created_at 
+		FROM movies 
+		ORDER BY created_at DESC 
+		LIMIT $1 OFFSET $2
+	`
 	
-	// Use "Query" instead of "QueryRow" because we expect MULTIPLE rows (a list of movies).
-	rows, err := r.db.Query(ctx, query)
+	rows, err := r.db.Query(ctx, query, limit, offset)
 	if err != nil {
-		return nil, err // If the query failed, return nothing (nil) and the error.
+		return nil, err
 	}
-	defer rows.Close() // ALWAYS close rows when done so we don't leak memory.
+	defer rows.Close()
 
-	// Create an empty list (slice) to hold the movies we find.
 	var movies []models.Movie
-
-	// Loop through the results, one row at a time.
 	for rows.Next() {
-		var m models.Movie // Create an empty movie struct
-		
-		// Copy the columns from the DB row into the empty struct variables.
-		// MUST be in the exact same order as the SELECT query above!
+		var m models.Movie
 		err := rows.Scan(&m.ID, &m.Title, &m.Description, &m.Duration, &m.ReleaseDate, &m.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
-		
-		// Add the filled-out movie struct to our list
 		movies = append(movies, m)
 	}
-
-	return movies, nil // Return the full list of movies!
+	return movies, nil
 }
 
 

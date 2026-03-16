@@ -55,15 +55,13 @@ func RunMigrations(db *pgxpool.Pool) {
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 	);`
 
+	queries := []string{query, theatersTable, showsTable}
 
-
-	queries :=[]string{query,theatersTable,showsTable}
-
-	for _,query:= range queries{
+	for _, query := range queries {
 		_, err := db.Exec(context.Background(), query)
 		if err != nil {
 			log.Fatalf("Failed to create tables: %v\n", err)
-		}	
+		}
 	}
 
 	log.Println("Database tables (movies, theaters,shows) verified/created successfully")

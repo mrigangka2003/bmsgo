@@ -36,24 +36,27 @@ func (h *ShowHandler) CreateShow(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusCreated, show)
 }
 
+
 // GET /movies/{id}/shows
 func (h *ShowHandler) GetShowsForMovie(w http.ResponseWriter, r *http.Request) {
-	// Grab the movie ID from the URL (e.g., /movies/123/shows)
 	movieID := r.PathValue("id")
 	if movieID == "" {
 		utils.ErrorJSON(w, http.StatusBadRequest, "Movie ID is required")
 		return
 	}
 
-	shows, err := h.repo.GetShowsByMovie(r.Context(), movieID)
+	// USE OUR NEW JOIN FUNCTION HERE!
+	shows, err := h.repo.GetShowDetails(r.Context(), movieID)
 	if err != nil {
-		utils.ErrorJSON(w, http.StatusInternalServerError, "Failed to fetch shows")
+		utils.ErrorJSON(w, http.StatusInternalServerError, "Failed to fetch shows: " + err.Error())
 		return
 	}
 
 	if shows == nil {
-		shows = []models.Show{}
+		shows = []models.ShowDetails{}
 	}
 
 	utils.WriteJSON(w, http.StatusOK, shows)
 }
+
+

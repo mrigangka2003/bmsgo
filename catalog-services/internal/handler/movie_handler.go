@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/mrigangka2003/bms/catalog-service/internal/models"
 	"github.com/mrigangka2003/bms/catalog-service/internal/repository"
@@ -37,7 +38,26 @@ func (h *MovieHandler) CreateMovie(w http.ResponseWriter, r *http.Request) {
 
 // GET /movies
 func (h *MovieHandler) GetMovies(w http.ResponseWriter, r *http.Request) {
-	movies, err := h.repo.GetAll(r.Context())
+	//Set Default values (Page 1, 10 movies per page)
+	page := 1
+	limit := 10
+
+
+	if p := r.URL.Query().Get("page"); p != "" {
+		if parsedPage, err := strconv.Atoi(p); err == nil && parsedPage > 0 {
+			page = parsedPage
+		}
+	}
+
+	// Check if the user provided '?limit=' in the URL
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if parsedLimit, err := strconv.Atoi(l); err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
+
+	// Pass the page and limit to the repository!
+	movies, err := h.repo.GetAll(r.Context(), page, limit)
 	if err != nil {
 		utils.ErrorJSON(w, http.StatusInternalServerError, "Failed to fetch movies")
 		return
@@ -47,7 +67,6 @@ func (h *MovieHandler) GetMovies(w http.ResponseWriter, r *http.Request) {
 		movies = []models.Movie{}
 	}
 
-	
 	utils.WriteJSON(w, http.StatusOK, movies)
 }
 

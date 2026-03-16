@@ -1,53 +1,76 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/mrigangka2003/bms/catalog-service/internal/config"
 	"github.com/mrigangka2003/bms/catalog-service/internal/database"
 	"github.com/mrigangka2003/bms/catalog-service/internal/handler"
+	"github.com/mrigangka2003/bms/catalog-service/internal/middleware"
 	"github.com/mrigangka2003/bms/catalog-service/internal/repository"
+	"github.com/mrigangka2003/bms/catalog-service/internal/routes"
 )
 
 func main() {
+	// Load configuration
 	cfg := config.LoadConfig()
 
+	// Connect to database
 	dbPool := database.ConnectDB(cfg.DATABASE_URL)
-	defer dbPool.Close()
 
-	//repositories
-	repo := repository.NewMovieRepo(dbPool)
+	// Initialize repositories
+	movieRepo := repository.NewMovieRepo(dbPool)
 	theaterRepo := repository.NewTheaterRepo(dbPool)
 	showRepo := repository.NewShowRepo(dbPool)
 
-	// handlers
-	movieHandler := handler.NewMovieHandler(repo)
+	// Initialize handlers
+	movieHandler := handler.NewMovieHandler(movieRepo)
 	theaterHandler := handler.NewTheaterHandler(theaterRepo)
 	showHandler := handler.NewShowHandler(showRepo)
 
-	http.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("catalog service is healthy and connected to the db"))
-	})
-  
-  //Movie Routes
-	http.HandleFunc("POST /movies", movieHandler.CreateMovie)
-	http.HandleFunc("GET /movies", movieHandler.GetMovies)
-	http.HandleFunc("GET /movies/{id}", movieHandler.GetMovieById)
+	// Register routes
+	mux := routes.RegisterRoutes(movieHandler, theaterHandler, showHandler)
 
-	//Theater Routes
-	http.HandleFunc("POST /theaters", theaterHandler.CreateTheater)
-	http.HandleFunc("GET /theaters", theaterHandler.GetTheaters)
+	// Wrap with CORS middleware
+	handlerWithCORS := middleware.CORS(mux)
 
-	//Show Routes
-	http.HandleFunc("POST /shows", showHandler.CreateShow)
-	http.HandleFunc("GET /movies/{id}/shows", showHandler.GetShowsForMovie)
-	
-	addr:= ":" + cfg.Port 
-	log.Printf("🚀 Catalog Service starting on port %s...\n", cfg.Port)
-	
-	err := http.ListenAndServe(addr, nil)
-	if err != nil {
-		log.Fatalf("Server failed to start: %v\n", err)
+	// Create HTTP server
+	srv := &http.Server{
+		Addr:    ":" + cfg.Port,
+		Handler: handlerWithCORS,
 	}
+
+	// Start server in background goroutine
+	go func() {
+		log.Printf("Catalog Service starting on port %s...\n", cfg.Port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server failed: %v\n", err)
+		}
+	}()
+
+	// Graceful shutdown handling
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+
+	<-quit
+	log.Println("Shutting down gracefully...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("Forced shutdown: %v\n", err)
+	}
+
+	// Close DB after HTTP shutdown
+	dbPool.Close()
+
+	log.Println("Database connection closed.")
+	log.Println("Server exited cleanly.")
 }

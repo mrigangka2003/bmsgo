@@ -26,3 +26,12 @@ type Show struct {
 	Price int `json:"price"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+type ShowDetails struct {
+	ID          string    `json:"id"`
+	MovieTitle  string    `json:"movie_title"`
+	TheaterName string    `json:"theater_name"`
+	Location    string    `json:"location"`
+	StartTime   time.Time `json:"start_time"`
+	Price       int       `json:"price"`
+}
